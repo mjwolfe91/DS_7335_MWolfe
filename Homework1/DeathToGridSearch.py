@@ -9,6 +9,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.datasets import load_breast_cancer
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+from sklearn.model_selection import GridSearchCV
 import matplotlib.pyplot as plt
 from itertools import product
 import csv
@@ -93,13 +94,16 @@ n = max(len(v1) for k1, v1 in clfAccuracyDict.items())
 output_path = 'Homework1/output/'
 filename_prefix = 'clf_Boxplots_'
 csv_file = 'Data.csv'
-try:
-    with open(output_path + filename_prefix + csv_file, 'w', newline="") as csv_file:
-        writer = csv.writer(csv_file)
-        for key, value in clfAccuracyDict.items():
-            writer.writerow([key, value])
-except IOError:
-    print("I/O error")
+#uncomment this line to reprint accuracy file
+#try:
+#    with open(output_path + filename_prefix + csv_file, 'w', newline="") as csv_file:
+#        writer = csv.writer(csv_file)
+#        for key, value in clfAccuracyDict.items():
+#            writer.writerow([key, value])
+#except IOError:
+#    print("I/O error")
+
+print(clfAccuracyDict)
 
 plot_num = 1
 left = 0.125
@@ -122,6 +126,16 @@ for k1, v1 in clfAccuracyDict.items():
     plt.subplots_adjust(left=left, right=right, bottom=bottom, top=top, wspace=wspace, hspace=hspace)
     plot_num_str = str(plot_num)
     filename = filename_prefix + plot_num_str
-    plt.savefig(output_path + 'plots/' + filename, bbox_inches='tight')
+    #uncomment this line to resave the plots
+    #plt.savefig(output_path + 'plots/' + filename, bbox_inches='tight')
     plot_num = plot_num + 1
+plt.show()
+
+parameters = {
+    'min_samples_split': [2,3,5,6],
+    'n_jobs': [3,5]}
+svc = RandomForestClassifier()
+grid = GridSearchCV(svc, parameters)
+grid.fit(M, L)
+plt.scatter(grid.cv_results_['mean_test_score'], grid.cv_results_['rank_test_score'], c='k', label='Exploring GridSearchCV', zorder=1,edgecolors=(0, 0, 0))
 plt.show()
