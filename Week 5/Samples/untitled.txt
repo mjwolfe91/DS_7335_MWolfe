@@ -1,0 +1,242 @@
+from sklearn.metrics import accuracy_score, precision_score
+import itertools as it
+from itertools import product
+from sklearn.model_selection import StratifiedKFold, GridSearchCV
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from collections import OrderedDict, Counter
+import matplotlib.pyplot as plt
+import statistics
+import datetime
+import numpy as np
+import numpy.lib.recfunctions as rfn
+import json
+import re
+import os
+​
+##############################################
+### Create functions, classes, and methods ###
+##############################################
+​
+class MedicalClaim(object):
+    # MedicalClaim class contains methods to return answers to medical claim inquires
+​
+    def __init__(self, filename = 'claim.sample.csv'):
+        " Initialize the class, read the data file, and clean comma-separated values"
+        self.dtypes = ['S8', 'f8', 'i4', 'i4', 'S14', 'S6', 'S6', 'S6', 'S4', 'S9', 'S7', 'f8',
+                       'S5', 'S3', 'S3', 'S3', 'S3', 'S3', 'f8', 'f8', 'i4', 'i4', 'i4', 'S3',
+                       'S3', 'S3', 'S4', 'S14', 'S14']
+        self.sarray = np.genfromtxt('claim.sample.csv', dtype=self.dtypes, delimiter=',', names=True,
+                                usecols=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28])
+        # raw_data = [re.sub("[^a-zA-z0-9.,]","", i).split(",") for i in open(filename).read().strip().split("\n")]
+        # Save data into different objects within the class
+        self.columns = self.sarray.dtype.names # Column Names stored in columns object
+        self.data = self.sarray # Data instances/rows stored into data object
+        self.columnMap = {k:v for v, k in enumerate(self.columns)} # iterate and map values to columns
+        self.columnMap_r = {v:k for k, v in self.columnMap.items()}
+        self.Jcode_indicies = [] # Stores indicies of the JCodes
+        self.Jcodes = [] # Stores JCode values as a list
+        self.model_columns = [] # Stores columns for machine learning models
+​
+​
+    # Medical claim is denoted by a claim number: ['ClaimNumber']
+    # Each claim consists of one or more medical lines denoted by a claim line number ['ClaimLineNumber']
+​
+    def Q1_abc(self):
+        ''' 1. J-codes are procedure codes that start with the letter 'J'.
+            A. Find the number of claim lines that have J-codes: 51,029.
+            B. How much was paid for J-codes to providers for 'in network' claims?: $2,417,220.96
+            C. What are the top five J-codes based on the payment to providers?: J1745, J0180, J9310, J3490, J1644 '''
+​
+        # 1A
+        JcodeIndicies = np.core.defchararray.startswith(self.data['ProcedureCode'], prefix = 'J'.encode(), start=0, end=1)
+        self.Jcode_indicies = JcodeIndicies
+        self.Jcodes = self.data[self.Jcode_indicies]
+        NumJCodeClaims = len(self.Jcodes) 
+        print("There are " + str(NumJCodeClaims) + " claim lines that have J-Codes.")
+​
+        # Jcodes = 0
+        # for i, row in enumerate(self.data):
+        #     try:
+        #         if row[self.columnMap['Procedure.Code']][0] == 'J':
+        #             Jcodes += 1
+        #             self.Jcode_indicies.append(i)
+        #             self.Jcodes.append(row)
+        #     except IndexError:
+        #         continue
+        # print("There are " + str(Jcodes
+        # ) + " claim lines that have J-Codes.")
+​
+​
+        # 1B
+        JCodeInNet = self.Jcodes[self.Jcodes['InOutOfNetwork'] == 'I'.encode()]
+        JcodeInNetRevenue = sum(JCodeInNet['ProviderPaymentAmount'])
+        print("$"+str(round(JcodeInNetRevenue,2))+" was paid for J-codes to providers for in-network claims.") # $2,417,220.96
+​
+        # paid = 0
+        # for i in self.Jcode_indicies:
+        #     paid += float(self.data[i][self.columnMap['Provider.Payment.Amount']])
+        # print("$"+str(round(paid,2))+" was paid for J-codes to providers for in-network claims.")
+        
+​
+        # 1C
+        Sorted_Jcodes = np.sort(self.Jcodes, order='ProviderPaymentAmount')[::-1] # Sort in Descending Orders w/ max payments at top
+        # Extract columns of interest into separate array
+        ProviderPayments = Sorted_Jcodes['ProviderPaymentAmount']
+        JCodes = Sorted_Jcodes['ProcedureCode'] # Note: JCodes only stores 'ProcedureCode' column compared to self.Jcodes which stores all MedicalClaims columns
+        array = [JCodes, ProviderPayments]
+        JCodePayments = rfn.merge_arrays(array, flatten = True, usemask = False)
+        # Aggregate JCode arrays into Ordered Dict: code modified from Anthony Schrams
+        JCodePayments_dict = {}
+        for JCode in JCodePayments:
+            if JCode[0] in JCodePayments_dict.keys():
+                JCodePayments_dict[JCode[0]] += JCode[1]
+            elif JCode[0] not in JCodePayments_dict.keys():
+                JCodePayments_dict[JCode[0]] = JCode[1]
+        # Create an OrderedDict (which we imported from collections): https://docs.python.org/3.7/library/collections.html#collections.OrderedDict
+        #Then, sort in descending order
+        JCodes_AggregatedPayments = OrderedDict(sorted(JCodePayments_dict.items(), key=lambda JCode: JCode[1], reverse=True))
+        topFive = list(JCodes_AggregatedPayments.items())[0:5]
+        print("The top five J-codes based on payments to providers are: ")
+        for val in topFive:
+            print("\t", val[0]," : $", round(val[1],2))
+​
+        # procedure = {}
+        # for i in self.Jcode_indicies:
+        #     try:
+        #         procedure[self.data[i][self.columnMap["Procedure.Code"]]] += \
+        #             float(self.data[i][self.columnMap["Provider.Payment.Amount"]])
+        #     except:
+        #         procedure[self.data[i][self.columnMap["Procedure.Code"]]] = \
+        #             float(self.data[i][self.columnMap["Provider.Payment.Amount"]])
+        # procedure_list = {v:k for k,v in procedure.items()}
+        # print("The top five J-codes based on payments to providers are: ")
+        # for val in sorted(procedure.values())[-5:]:
+        #     print("\t", procedure_list[val]," : $", round(val,2))
+​
+​
+    def Q2_abc(self):
+        ''' 2. For the following exercises, determine the number of providers that were paid for at least one J-code. Use the J-code claims for these providers to complete the following exercises.: 13 providers
+            A. Create a scatter plot that displays the number of unpaid claims (lines where the ‘Provider.Payment.Amount’ field is equal to zero) for each provider versus the number of paid claims.
+            B. What insights can you suggest from the graph?
+            C. Based on the graph, is the behavior of any of the providers concerning? Explain. '''
+​
+        # 2A
+        unpaid_claims = Counter()
+        paid_claims = Counter()
+​
+        for row in self.Jcodes:
+            if int(float(row[self.columnMap["ProviderPaymentAmount"]])) == 0:
+                unpaid_claims[row[self.columnMap["ProviderID"]]] += 1
+            else:
+                paid_claims[row[self.columnMap["ProviderID"]]] += 1
+​
+        NumProviders_PaidJCode = len(paid_claims)
+        print(str(NumProviders_PaidJCode) +" providers were paid for at least one J-code.")
+​
+        paid_AGG = [paid_claims[k] for k in unpaid_claims.keys()]
+        unpaid_AGG = [unpaid_claims[k] for k in unpaid_claims.keys()]
+​
+        fig, ax = plt.subplots(1, 1, figsize = (25,25))
+        ax.scatter(paid_AGG, unpaid_AGG)
+        ax.set_title("Scatterplot of Paid vs. Unpaid Claims aggregated by ProviderID", fontsize = 42)
+        ax.set_xlabel("Number of Paid Claims", fontsize = 30)
+        ax.set_ylabel("Number of Unpaid Claims", fontsize = 30)
+        ax.set_xlim(-5, 2000)
+        ax.set_ylim(-5, 15000)
+​
+        try:
+            fig.savefig("PaidvsUnpaid_Claims.png")
+        except IOError:
+            os.mkdir('figures')
+            fig.savefig("PaidvsUnpaid_Claims.png")
+            
+        print("Scatterplot displaying number of unpaid versus paid claims is saved in working directory as 'PaidvsUnpaid_Claims.png'.")
+​
+        # 2B
+        #print(sum(paid_AGG))
+        #print(sum(unpaid_AGG))
+        print("The graph suggests that there are many more unpaid J-code claims (45,057) than paid J-code claims (5,972). Note the different scales on the axes: y-axis (unpaid) is set to a max of 15,000 while x-axis (paid) is set to a max of 2,500 for better resolution. Scale of y-axis is 7.5x the scale of x-axis, which is approximately how many times greater the number of unpaid J-code claims is than the number of paid J-code claims")
+​
+        # 2C
+        print("The concerning behavior from the graph is that the number of unpaid claims are much greater than the number of paid claims. This suggests an overwhelming medical debt in this data population that is possibly looming over the entire healthcare industry. Healthcare providers will need to take significant steps to improve their claim collection process as this can be a major operational issue.")
+​
+    
+    def Q3_a(self):
+        ''' 3. Consider all claim lines with a J-code.
+            A. What percentage of J-code claim lines were unpaid? 88.3%'''
+        
+        unpaid = 0
+        paid = 0
+​
+        for row in self.Jcodes:
+            if int(float(row[self.columnMap["ProviderPaymentAmount"]])) == 0:
+                unpaid += 1
+            else:
+                paid += 1
+        total = unpaid + paid
+        percent_unpaid = float(unpaid/total * 100)
+        print("The percentage of unpaid J-code claim lines is: " + str(round(percent_unpaid,2)) +'%')
+​
+    def Q3_b(self):
+        ''' B. Create a model to predict when a J-code is unpaid. Explain why you choose the modeling approach.'''
+​
+    model_cols = []
+    numeric_cols = ['SubscriberPaymentAmount', 'ClaimChargeAmount']
+    dummy_cols = {'ProviderID':{},'LineofBusinessID':{},'ServiceCode':{},'InOutofNetwork':{},'NetworkID':{},'AgreementID':{},'PriceIndex':{},'ClaimType':{},'ProcedureCode':{},'RevenueCode':{}}
+​
+    # Generate Dummy Columns
+    for rownum, row in enumerate(self.Jcodes):
+        for col in dummy_cols.keys():
+            try:
+                dummy_cols[col][rownum].add(row[self.columnMap[col]])
+            except KeyError:
+                dummy_cols[col][row[self.columnMap[col]]] = {rownum}
+    
+    for colname, dumdict in dummy_cols.items():
+        for dummy in dumdict.keys():
+            self.model_columns.append("{}${}".format(colname, dummy))
+​
+    # Add dummy columns to new data set (model_df)
+    model_df = []
+    for idx, row in enumerate(self.Jcodes):
+        ith_row = []
+        for colname in self.model_columns:
+            col, val = colname.split["$"]
+        if idx in dummy_cols[col][val]:
+            ith_row.append(1)
+        else:
+            ith_row.append(0)
+​
+        for numeric in numeric_cols:
+            ith_row.append(float(row[self.columnMap[numeric]]))
+​
+        # Convert Provider Payment Amount to binary classified value
+        # Remove this column to ensure no label-leakage exists within the model
+        if float(row[self.columnMap['ProviderPaymentAmount']]) > 0.0:
+            ith_row.append(0.0)
+        else:
+            ith_row.append(1.0)
+        model_df.append(ith_row)
+    
+    # Retain column names for future reference
+    for numeric_col in numeric_cols:
+        self.model_cols.append(numeric_col)
+​
+    # Turn model_df into numpy array to use when modeling
+    np_df = np.array(model_df)
+​
+    # Identify where label cols are true and false to create balanced class sizes - balanced being the number of paid claims == number of unpaid claims
+    true_vals = np_df[np_df[:, -1] == 1.0]
+    false_vals = np_df[np_df[:, -1] == 0.0]
+    bal_df = np.concatenate([false_vals, true_vals[:false_vals.shape[0]]])
+​
+    X = b_df[:, :-1]
+    y = b_df[:, -1]
+​
+    # Combine data and target for k-fold CV
+    k_folds = 5
+    data = (X, y, k_folds)
