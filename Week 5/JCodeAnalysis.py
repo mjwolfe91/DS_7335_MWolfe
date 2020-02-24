@@ -171,7 +171,7 @@ clfDict = {'RandomForestClassifier':{
           }
 
 classifierList = {RandomForestClassifier,LogisticRegression,DecisionTreeClassifier}
-clfList = {RandomForestClassifier,LogisticRegression,DecisionTreeClassifier,KNeighborsClassifier,QuadraticDiscriminantAnalysis}
+clfList = {RandomForestClassifier,LogisticRegression,DecisionTreeClassifier,KNeighborsClassifier}
 
 model_df = []
 for idx, row in enumerate(Jcodes):
@@ -204,7 +204,11 @@ grid_search = DeathToGridSearch(clfDict,clfList,data)
 grid_search_classifiers = DeathToGridSearch(classifierDict,classifierList,data)
 
 classifier_accuracy, importance_dict = grid_search_classifiers.run_gridsearch_classifiers()
+
 grid_search_classifiers.get_best_score(classifier_accuracy)
 
 accuracy_dict = grid_search.run_gridsearch()
 grid_search.get_best_score(accuracy_dict)
+
+grid_search_classifiers.get_features_with_importance(classifier_accuracy,importance_dict,model_columns)
+
