@@ -1,27 +1,18 @@
 import numpy as np
 import numpy.lib.recfunctions as rfn
-from collections import OrderedDict, Counter
-from sklearn.metrics import accuracy_score, precision_score
-import itertools as it
-from itertools import product
-from sklearn.model_selection import StratifiedKFold, GridSearchCV
-from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
-from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from collections import OrderedDict, Counter
 import matplotlib.pyplot as plt
-import statistics
-import datetime
-import json
-import re
 import os
 import sys
 
-from DeathToGridSearch.DeathToGridSearch import DeathToGridSearch
+sys.path.append(r'{0}\DeathToGridSearch'.format(os.getcwd()))
 
-sys.path.append(r'C:\Users\micha\DS_7335_MWolfe\DeathToGridSearch')
+import DeathToGridSearch
+from DeathToGridSearch import DeathToGridSearch
 
 def get_JCodes_with_claims(data):
     JcodeIndicies = np.core.defchararray.startswith(data['ProcedureCode'], prefix = 'J'.encode(), start=0, end=1)
@@ -50,7 +41,6 @@ def provider_payments(data, n_top_providers, payments_dict = {}):
 
 def paid_vs_unpaid(paid, unpaid):
     filename = 'PaidvsUnpaid_Claims.png'
-    NumProviders_PaidJCode = len(paid)
     paid_AGG = [paid[k] for k in unpaid.keys()]
     unpaid_AGG = [unpaid[k] for k in unpaid.keys()]
     fig, ax = plt.subplots(1, 1, figsize=(25, 25))
@@ -157,19 +147,6 @@ classifierDict = {'RandomForestClassifier':{
     'LogisticRegression':{'tol': [0.001,0.0011,.005,.0055]},
           }
 
-clfDict = {'RandomForestClassifier':{
-    'min_samples_split': [5,6],
-    'n_jobs': [3,5]},
-    'LogisticRegression':{'tol': [0.001,.0055]},
-    'KNeighborsClassifier': {
-        'n_neighbors': [20,30],
-        'algorithm': ['auto','ball_tree','brute'],
-        'p': [5]},
-    'QuadraticDiscriminantAnalysis':{'tol':[0.001,.0055],
-    'store_covariance':[False,True]},
-    'DecisionTreeClassifier':{'max_depth':[1,5]}
-          }
-
 classifierList = {RandomForestClassifier,LogisticRegression,DecisionTreeClassifier}
 clfList = {RandomForestClassifier,LogisticRegression,DecisionTreeClassifier,KNeighborsClassifier}
 
@@ -200,15 +177,37 @@ y = np_df[:, -1]
 n_folds = 5
 data = (X,y,n_folds)
 
-grid_search = DeathToGridSearch(clfDict,clfList,data)
-grid_search_classifiers = DeathToGridSearch(classifierDict,classifierList,data)
+
+grid_search_classifiers = DeathToGridSearch.DeathToGridSearch(classifierDict, classifierList, data)
 
 classifier_accuracy, importance_dict = grid_search_classifiers.run_gridsearch_classifiers()
 
-grid_search_classifiers.get_best_score(classifier_accuracy)
+best_classifier = grid_search_classifiers.get_best_score(classifier_accuracy)
 
-accuracy_dict = grid_search.run_gridsearch()
-grid_search.get_best_score(accuracy_dict)
+grid_search_classifiers.plot_FeatureImportances(importance_dict,best_classifier,model_columns)
 
-grid_search_classifiers.get_features_with_importance(classifier_accuracy,importance_dict,model_columns)
+print(
+    """Random Forest, Logistic Regression, and Decision Tree models were chosen to predict this binary classification task. Since I am familiar with some of the concepts in diagnosis codes but not with this specific healthcare system, I decided to test multiple approaches using my Gridsearch function from the previous assignment. Logistic Regression will perform well if the data is linearly separable and provides a simple model for the basis of comparison. Given the overwhelming amount of discrete/categorical variables compared to continuous/numeric variables in the data, I assume Decision Tree and Random Forest models will outperform Logistic Regression models in this classification task. \n\nThese three models will also provide parameters for interpretting the importance of features in the data that influence the classification decisions. Logistic Regression provides weights/coffieicents of the features from the resulting linear model. Decision Tree and Random Forest models provides actual feature importances calculated from the Gini Impurity metric (a measure of how often a randomly chosen instance from the data is misclassified). \n\nDue to the heavy class imbalance (88.3% unpaid claims), I used Stratified 5-Fold Cross Validation scheme to ensure that the class distribution was maintained in each fold.""")
+
+print(
+    """\nThe accuracy of the top performing classification model is listed below: 88.2% with a RandomForestClassifier. \nThe top 2 data attributes predominantly influencing the rate of non-payment are ClaimChargeAmount (0.999) and SubscriberPaymentAmount (0.00019468). \nThe bar chart visualizing the feature importances of data attributes influencing the classification of unpaid versus paid claims is saved in the working directory as "Feature_Importances+OptimalClf.png" and only displays the top 3 features since all other attributes besides the two mentioned above had a gini impurity of 0. This makes sense since larger claims will naturally be harder to pay. In future exercises it might be worthwhile to conduct ANOVA to determine more in-depth terms that contribute to both larger claims and payment defaults on said payments.""")
+
+#This instantiation of gridsearch represents a gridsearch of nonclassification models, to test if any of those models could be more accurate than our
+#classification models. It is not recommended to un-comment this as it will take a very long time to run.
+#clfDict = {'RandomForestClassifier':{
+#    'min_samples_split': [5,6],
+#    'n_jobs': [3,5]},
+#    'LogisticRegression':{'tol': [0.001,.0055]},
+#    'KNeighborsClassifier': {
+#        'n_neighbors': [20,30],
+#        'algorithm': ['auto','ball_tree','brute'],
+#        'p': [5]},
+#    'QuadraticDiscriminantAnalysis':{'tol':[0.001,.0055],
+#    'store_covariance':[False,True]},
+#    'DecisionTreeClassifier':{'max_depth':[1,5]}
+#          }
+#accuracy_dict = grid_search.run_gridsearch()
+#grid_search.get_best_score(accuracy_dict)
+#grid_search = DeathToGridSearch(clfDict,clfList,data)
+
 

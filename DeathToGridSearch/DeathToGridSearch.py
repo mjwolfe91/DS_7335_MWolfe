@@ -148,33 +148,36 @@ class DeathToGridSearch:
                     plt.savefig(output_dir + '/' + filename, bbox_inches='tight')
 
         print("\n*Model with best accuracy: ", optimal_hyperparameters[1], "\nClassifier & Parameters: \n", optimal_hyperparameters[0], "\n*")
+        return optimal_classifier
 
-    def get_features_with_importance(self, gridsearch_results, gridsearch_feature_weights, columns):
+    def plot_FeatureImportances(self,clfFeatureImpDict, classifier, columns):
 
-        filename = 'best_clf_feature_importances'
-        best_accuracy = 0
+        filename = 'Feature_Importances_OptimalClf.png'
 
-        for classifier, accuracy in gridsearch_results.items():
+        avgCV_FI = np.mean(clfFeatureImpDict[classifier], axis=0)
 
-            if best_accuracy < statistics.mean(accuracy):
-                best_accuracy = statistics.mean(accuracy)
-                optimal_classifier = classifier
-                feature_weights = gridsearch_feature_weights[optimal_classifier]
+        top3_featureIdx = avgCV_FI.argsort()[0][-3:][::-1]
+        top3_FI = avgCV_FI[top3_featureIdx]
+        top3_features = []
+        for i in top3_featureIdx:
+            top3_features.append(columns[i])
 
-                fig = plt.figure(figsize=(20, 10))
-                ax = fig.add_subplot(1, 1, 1)
-                plt.bar(feature_weights, vert=False)
-                ax.set_title(str(optimal_classifier) + " Feature Importances", fontsize=30)
-                ax.set_xlabel('Features', fontsize=25)
-                ax.set_ylabel('Feature Importance',     fontsize=25)
-                ax.xaxis.set_ticks(columns)
-                ax.yaxis.set_ticks(np.arange(0, 1, 1))
-                ax.xaxis.set_tick_params(labelsize=20)
-                ax.yaxis.set_tick_params(labelsize=20)
-                plt.savefig(output_dir + '/' + filename, bbox_inches='tight')
-                plt.show()
-                try:
-                    plt.savefig(output_dir + '/' + filename, bbox_inches='tight')
-                except IOError:
-                    os.mkdir(output_dir)
-                    plt.savefig(output_dir + '/' + filename, bbox_inches='tight')
+        fig = plt.figure(figsize=(20, 10))
+        ax = fig.add_subplot(1, 1, 1)
+        plt.barh(np.arange(len(top3_features)), top3_FI, align='center')
+        ax.set_title("Feature Importances: " + str(classifier), fontsize=30)
+        ax.set_ylabel('Features', fontsize=25)
+        ax.set_xlabel('Feature Importances', fontsize=25)
+        ax.xaxis.set_ticks(np.arange(0, 1, 0.1))
+        plt.yticks(np.arange(len(top3_features)), top3_features)
+        ax.xaxis.set_tick_params(labelsize=20)
+        ax.yaxis.set_tick_params(labelsize=20)
+        plt.savefig(output_dir + filename, bbox_inches='tight')
+        plt.show()
+
+        try:
+            plt.savefig(output_dir + filename, bbox_inches='tight')
+        except IOError:
+            os.mkdir(output_dir)
+            plt.savefig(output_dir + filename, bbox_inches='tight')
+
