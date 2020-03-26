@@ -264,6 +264,7 @@ c.shape, d.shape
 
 np.dot(c, d)
 # What is a matrix product?
+print('A matrix product is the result of matrix multiplication. It has the observations of the first matrix and the features of the second.')
 # https://en.wikipedia.org/wiki/Matrix_multiplication
 # https://docs.scipy.org/doc/numpy/reference/generated/numpy.matmul.html#numpy.matmul
 # matmul give the matrix product, too.
@@ -275,8 +276,8 @@ restaurantsMatrix.shape, peopleMatrix.shape
 
 # The most imporant idea in this project is the idea of a linear combination.
 
-# Informally describe what a linear combination is and how it will relate to our resturant matrix.
-
+# Informally describe what a linear combination is and how it will relate to our restaurant matrix.
+print('A linear combination is a product of summing several terms each multiplied by a constant, usually expressed as ax + by, etc. In this context, the linear combination is the best restaurant recommendation for each user.')
 # This is for you to answer! However....https://en.wikipedia.org/wiki/Linear_combination
 # essentially you are multiplying each term by a constant and summing the results.
 
@@ -325,7 +326,7 @@ results
 sortedResults = results.argsort()[::-1] + 1
 sortedResults
 
-# What is the problem here?
+print('What is the problem here?')
 
 results.shape
 
